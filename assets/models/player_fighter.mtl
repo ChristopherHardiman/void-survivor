@@ -1,0 +1,12 @@
+# Made in Blockbench 4.12.6
+newmtl m_0fab5a00-d34d-fe6e-e00c-b7b91ecbe637
+map_Kd right tail.png
+newmtl m_540fb443-390f-63f6-524a-606260145036
+map_Kd player_fighter1.png
+newmtl m_403a2fdd-bb0b-de75-7072-3ed7a8b38d60
+map_Kd left wing.png
+newmtl m_936429a1-aeaf-d9e2-3f6c-c1402440916a
+map_Kd left tail.png
+newmtl m_66c248e7-23d2-b7b1-7989-9cf09dc267a7
+map_Kd right wing.png
+newmtl none
