@@ -1,271 +1,195 @@
-# 🚀 Fyrox Arena Survivor - Development Roadmap
+# Bevy Arena Survivor - Development Roadmap
 
 ## Project Overview
-A 3D top-down arena survival shooter built with the Fyrox game engine. This roadmap outlines the development phases and tasks needed to build the game from the current base structure to a fully playable experience.
+Bevy Arena Survivor is a 3D top-down arena survival shooter built with the Bevy game engine. This roadmap outlines the development phases, milestones, and tasks needed to complete the project.
 
-## Current Status
-✅ **Base Project Structure Created**
-- ✅ Core module structure implemented (`player`, `enemy`, `wave`, `loot`, `upgrade`, `ui`, `fx`, `audio`, `config`)
-- ✅ Asset directory structure organized according to FX and model requirements
-- ✅ Basic game systems defined (Player, WaveManager, etc.)
-- ✅ Configuration system with balance parameters
-- ✅ Cargo workspace properly configured
+## Engine Migration Status ✅
+- [x] **Fyrox to Bevy Migration**: Successfully migrated from Fyrox 0.36.2 to Bevy 0.12
+- [x] **Architecture Conversion**: Converted from Fyrox script system to Bevy ECS plugins
+- [x] **Module Structure**: Reorganized code for Bevy plugin architecture
+- [x] **Build System**: Updated Cargo.toml files for Bevy dependencies
 
-## Development Phases
+## Phase 1: Core Foundation ✅ COMPLETE
 
-### Phase 1: Core Foundation (Weeks 1-2)
-**Goal**: Get basic game loop running with player movement and simple shooting
+### Milestone 1.1: Project Setup ✅
+- [x] Cargo workspace configuration
+- [x] Bevy project structure
+- [x] Basic application setup with window and camera
+- [x] Game state management (MainMenu, Playing, Paused, GameOver)
+- [x] Asset loading pipeline setup
 
-#### 1.1 Engine Integration & Scene Setup
-- [ ] **Fix Plugin trait implementation**
-  - Implement proper `Visit` and `Reflect` traits for Game struct
-  - Research Fyrox's script system and integrate properly
-  - Set up proper scene loading and management
+### Milestone 1.2: Basic Systems ✅  
+- [x] Player entity spawning and basic movement (WASD)
+- [x] Camera system with 2D perspective
+- [x] Input handling system
+- [x] Basic sprite rendering
+- [x] Game entity management with cleanup
 
-- [ ] **Basic Scene Creation**
-  - Create main arena scene (`data/scenes/main_arena.rgs`)
-  - Set up basic 3D arena with floor and boundaries
-  - Configure camera for top-down view
-  - Add basic lighting setup
+## Phase 2: Core Gameplay Systems (IN PROGRESS)
 
-#### 1.2 Player System Implementation
-- [ ] **Player Movement**
-  - Implement WASD movement controls
-  - Add mouse-look for aiming direction
-  - Create player ship 3D model (or use placeholder)
-  - Set up proper transform updates
+### Milestone 2.1: Player System ✅
+- [x] **Player Plugin**: Complete Bevy plugin architecture
+- [x] **Movement System**: WASD movement with velocity and arena bounds
+- [x] **Shooting System**: Mouse aiming with projectile spawning
+- [x] **Health System**: Health, shields, and regeneration
+- [x] **Weapon Types**: Multiple weapon types (Blaster, Laser, Rocket, AoE)
+- [x] **Experience System**: Level progression and stat tracking
 
-- [ ] **Basic Shooting System**
-  - Implement blaster weapon firing
-  - Create projectile system
-  - Add basic collision detection
-  - Simple damage dealing to targets
+### Milestone 2.2: Enemy System ✅
+- [x] **Enemy Plugin**: Bevy plugin with AI systems
+- [x] **Enemy Types**: Chaser, Shooter, Tank, Swarm, Elite, Boss
+- [x] **AI Behaviors**: Chase player, patrol, circle, stationary
+- [x] **Combat System**: Enemy shooting and collision detection
+- [x] **Health Management**: Damage, death, and cleanup
+- [x] **Enemy Projectiles**: Separate projectile system for enemies
 
-#### 1.3 Enemy System Foundation
-- [ ] **Basic Enemy AI**
-  - Implement Chaser enemy type
-  - Simple AI: move toward player
-  - Basic collision and damage dealing
-  - Enemy death and removal
+### Milestone 2.3: Wave System ✅
+- [x] **Wave Plugin**: Wave management resource and systems
+- [x] **Wave Progression**: Automatic wave advancement
+- [x] **Difficulty Scaling**: Progressive enemy count and stats
+- [x] **Enemy Spawning**: Timed spawning around arena perimeter
+- [x] **Wave Completion**: Detection and break periods
+- [x] **Enemy Composition**: Different enemy mixes per wave
 
-- [ ] **Enemy Spawning**
-  - Basic spawn system around arena perimeter
-  - Simple spawn timing
-  - Enemy count management
+### Milestone 2.4: Loot System ✅
+- [x] **Loot Plugin**: Pickup and collection systems
+- [x] **Loot Types**: Experience, Health, Shield, Weapon, PowerUp
+- [x] **Collection System**: Proximity-based pickup
+- [x] **Magnetic System**: Attraction to player for ease of collection
+- [x] **Spawn Integration**: Loot drops from defeated enemies
 
-### Phase 2: Core Gameplay Loop (Weeks 3-4)
-**Goal**: Complete basic survival gameplay with waves, experience, and level-ups
+### Milestone 2.5: Upgrade System 🔄 (IN PROGRESS)
+- [x] **Upgrade Plugin**: Progression and selection systems
+- [x] **Upgrade Types**: Health, Shield, Damage, Fire Rate, Speed increases
+- [x] **Weapon Unlocks**: Access to new weapon types
+- [x] **Special Abilities**: Double shot, piercing, explosive effects
+- [ ] **Upgrade UI**: Selection interface on level up
+- [ ] **Application Logic**: Proper upgrade effect implementation
 
-#### 2.1 Wave System Implementation
-- [ ] **Wave Management**
-  - Implement complete wave progression
-  - Enemy spawning based on wave configuration
-  - Wave completion detection
-  - Transition between waves
+## Phase 3: User Interface and Feedback
 
-- [ ] **Additional Enemy Types**
-  - Implement Shooter enemy (ranged attacks)
-  - Implement Tank enemy (high health, slow)
-  - Balance enemy stats and behaviors
+### Milestone 3.1: Game UI ✅
+- [x] **UI Plugin**: Complete interface management
+- [x] **HUD Elements**: Health bars, shield bars, experience bar
+- [x] **Wave Display**: Current wave number and status
+- [x] **Player Stats**: Level and experience display
+- [x] **Main Menu**: Title screen with play button
+- [x] **Responsive Design**: UI adapts to different screen sizes
 
-#### 2.2 Progression System
-- [ ] **Experience & Leveling**
-  - EXP drop system from enemies
-  - Experience collection and level-up detection
-  - Level-up screen with upgrade choices
+### Milestone 3.2: Visual Effects 🔄 (IN PROGRESS)
+- [x] **FX Plugin**: Particle and visual effect systems
+- [x] **Particle Types**: Explosion, muzzle flash, impact, death effects
+- [x] **Visual Effects**: Screen shake, flash, slow motion
+- [x] **Particle Spawning**: Effect spawning for game events
+- [ ] **Effect Integration**: Connect effects to gameplay events
+- [ ] **Performance Optimization**: Efficient particle management
 
-- [ ] **Basic Upgrade System**
-  - Implement core upgrades (damage, fire rate, health, speed)
-  - Upgrade application to player stats
-  - Simple upgrade UI
+### Milestone 3.3: Audio System ✅
+- [x] **Audio Plugin**: Sound effect and music management
+- [x] **Sound Effects**: Player shoot, enemy hit/death, pickups, level up
+- [x] **Music System**: Background music with volume control
+- [x] **Audio Manager**: Resource for managing audio state
+- [ ] **Audio Integration**: Connect sounds to gameplay events
+- [ ] **Dynamic Music**: Music that responds to game state
 
-#### 2.3 Basic UI Implementation
-- [ ] **HUD System**
-  - Health/shield bars
-  - Experience bar
-  - Wave information display
-  - Basic pause functionality
+## Phase 4: Polish and Balance
 
-### Phase 3: Enhanced Systems (Weeks 5-6)
-**Goal**: Add shop system, more weapons, and improved gameplay feel
+### Milestone 4.1: Configuration System ✅
+- [x] **Config Plugin**: Game balance and settings management
+- [x] **Game Config**: Arena bounds, difficulty scaling, loot rates
+- [x] **Player Config**: Base stats and progression parameters
+- [x] **Enemy Config**: AI behavior and combat statistics
+- [x] **Wave Config**: Spawn rates and wave progression rules
+- [x] **File I/O**: Save and load configuration files
 
-#### 3.1 Shop System
-- [ ] **Between-Wave Shop**
-  - Currency system implementation
-  - Shop UI with purchasable items
-  - Weapon unlocks and upgrades
-  - Shop item progression
+### Milestone 4.2: Game Balance 🔄 (UPCOMING)
+- [ ] **Weapon Balance**: Damage, fire rate, projectile speed tuning
+- [ ] **Enemy Balance**: Health, damage, movement speed adjustment
+- [ ] **Wave Progression**: Difficulty curve optimization
+- [ ] **Upgrade Balance**: Ensure meaningful upgrade choices
+- [ ] **Playtesting**: Extensive testing and iteration
 
-#### 3.2 Weapon Variety
-- [ ] **Additional Weapons**
-  - Laser weapon implementation
-  - Rocket launcher with area damage
-  - AoE pulse ability
-  - Weapon switching system
+### Milestone 4.3: Menu Systems 🔄 (UPCOMING)
+- [ ] **Pause Menu**: In-game pause with resume/quit options
+- [ ] **Game Over Screen**: Death screen with restart functionality
+- [ ] **Settings Menu**: Audio, graphics, and control options
+- [ ] **Achievement System**: Unlock conditions and display
+- [ ] **Statistics Tracking**: Game metrics and high scores
 
-#### 3.3 Loot System Enhancement
-- [ ] **Advanced Loot**
-  - Health packs and energy cells
-  - Loot attraction system (magnet effect)
-  - Loot visual improvements
-  - Drop rate balancing
+## Phase 5: Content Expansion
 
-### Phase 4: Visual & Audio Polish (Weeks 7-8)
-**Goal**: Add juice and polish to make the game feel great
+### Milestone 5.1: Advanced Features 🔄 (FUTURE)
+- [ ] **Boss Mechanics**: Complex boss fight patterns
+- [ ] **Special Abilities**: Player ultimate abilities with cooldowns
+- [ ] **Weapon Modifiers**: Upgrade paths for existing weapons
+- [ ] **Arena Variations**: Different arena layouts and themes
+- [ ] **Power-up Effects**: Temporary boosts and special states
 
-#### 4.1 Visual Effects
-- [ ] **Particle Systems**
-  - Weapon muzzle flashes and projectile trails
-  - Enemy death explosions (scaled by enemy type)
-  - Loot pickup effects
-  - Level-up visual feedback
+### Milestone 5.2: Performance Optimization 🔄 (FUTURE)
+- [ ] **Rendering Optimization**: Efficient sprite batching
+- [ ] **Memory Management**: Object pooling for projectiles/effects
+- [ ] **System Optimization**: ECS query optimization
+- [ ] **Asset Optimization**: Compressed textures and audio
+- [ ] **Platform Testing**: Performance across different hardware
 
-- [ ] **Shader Effects**
-  - Glowing loot items
-  - Weapon beam effects (laser)
-  - Arena boundary visual effects
-  - Screen effects (damage flash, level-up burst)
+## Phase 6: Platform Support and Release
 
-#### 4.2 Audio Implementation
-- [ ] **Sound Effects**
-  - Weapon firing sounds
-  - Enemy sounds (movement, attacks, death)
-  - UI feedback sounds
-  - Loot pickup audio
+### Milestone 6.1: Web Deployment 🔄 (FUTURE)
+- [ ] **WASM Build**: WebAssembly compilation
+- [ ] **Web Assets**: Optimized assets for web delivery
+- [ ] **Touch Controls**: Mobile browser compatibility
+- [ ] **Performance**: 60fps on modern browsers
+- [ ] **Hosting**: Deploy to web platform
 
-- [ ] **Music System**
-  - Background music loop
-  - Shop phase music
-  - Audio settings and volume controls
+### Milestone 6.2: Release Preparation 🔄 (FUTURE)
+- [ ] **Documentation**: Complete game documentation
+- [ ] **Release Notes**: Version history and features
+- [ ] **Build Pipeline**: Automated build and packaging
+- [ ] **Distribution**: Platform-specific releases
+- [ ] **Marketing**: Screenshots, videos, descriptions
 
-#### 4.3 Environment Polish
-- [ ] **Arena Visuals**
-  - Space background with starfield shader
-  - Nebula effects
-  - Arena boundary glow effects
-  - Improved lighting and atmosphere
+## Current Status Summary
 
-### Phase 5: Advanced Features & Balance (Weeks 9-10)
-**Goal**: Add advanced gameplay features and fine-tune balance
+### ✅ Completed Systems
+1. **Core Bevy Architecture**: Full plugin system with ECS
+2. **Player System**: Complete movement, shooting, health, progression
+3. **Enemy System**: 6 enemy types with AI behaviors and combat
+4. **Wave System**: Progressive wave spawning and difficulty scaling
+5. **Loot System**: Collection and magnetic attraction
+6. **Basic UI**: HUD, menus, and status displays
+7. **Configuration**: Data-driven balance system
 
-#### 5.1 Advanced Gameplay
-- [ ] **Special Abilities**
-  - EMP pulse implementation
-  - Combat drone system
-  - Shield abilities
-  - Cooldown management
+### 🔄 In Progress
+1. **Upgrade System**: UI integration and effect application
+2. **Visual Effects**: Connecting effects to gameplay events
+3. **Audio Integration**: Connecting sounds to game actions
 
-#### 5.2 Advanced Enemy Features
-- [ ] **Elite Enemies**
-  - Elite variants with special abilities
-  - Boss enemies for milestone waves
-  - Advanced AI behaviors
+### 🔄 Next Priorities
+1. **Fix Module Dependencies**: Resolve circular import issues
+2. **Complete Upgrade UI**: Level-up selection interface
+3. **Audio-Visual Integration**: Connect effects and sounds to gameplay
+4. **Game Balance**: Playtesting and parameter tuning
+5. **Menu Polish**: Pause menu and game over screen
 
-#### 5.3 Balance & Progression
-- [ ] **Game Balance**
-  - Difficulty curve refinement
-  - Upgrade balance testing
-  - Player progression pacing
-  - Wave composition optimization
-
-### Phase 6: Polish & Release Preparation (Weeks 11-12)
-**Goal**: Final polish and prepare for release
-
-#### 6.1 Performance Optimization
-- [ ] **Performance**
-  - Particle system optimization
-  - Entity pooling for enemies/projectiles
-  - Memory usage optimization
-  - Frame rate stability
-
-#### 6.2 UI/UX Polish
-- [ ] **Interface Improvements**
-  - Menu system implementation
-  - Settings screen
-  - Improved visual feedback
-  - Accessibility considerations
-
-#### 6.3 Content & Balance
-- [ ] **Final Content**
-  - Additional enemy types
-  - More upgrade options
-  - Arena variations
-  - Achievement system (optional)
-
-## Technical Debt & Improvements
-
-### High Priority
-- [ ] **Trait Implementation**: Fix Visit/Reflect traits for proper Fyrox integration
-- [ ] **Error Handling**: Add proper error handling throughout the codebase
-- [ ] **Resource Management**: Implement proper asset loading and management
-- [ ] **Input System**: Create robust input handling system
-
-### Medium Priority
-- [ ] **Code Organization**: Refactor modules for better separation of concerns
-- [ ] **Testing**: Add unit tests for core game logic
+### Technical Debt
+- [ ] **Circular Dependencies**: Fix import structure between modules
+- [ ] **Error Handling**: Improve error handling throughout codebase
 - [ ] **Documentation**: Add comprehensive code documentation
-- [ ] **Configuration**: Expand configuration system for easy balance tweaks
-
-### Low Priority
-- [ ] **Modding Support**: Consider mod support architecture
-- [ ] **Analytics**: Add game analytics for balance data
-- [ ] **Localization**: Prepare for multiple language support
-
-## Risk Assessment
-
-### High Risk
-- **Fyrox Integration Complexity**: The engine is less documented than others
-- **Performance**: Particle systems and entity counts may impact performance
-- **Scope Creep**: Feature additions could delay core gameplay
-
-### Medium Risk
-- **Balance Tuning**: May require extensive playtesting
-- **Asset Creation**: 3D models and effects require art skills or outsourcing
-
-### Low Risk
-- **Code Architecture**: Well-planned modular structure should support changes
-- **Technical Features**: Most gameplay systems are well-understood patterns
+- [ ] **Testing**: Unit tests for core game logic
+- [ ] **Optimization**: Performance profiling and improvements
 
 ## Success Metrics
 
-### Phase 1 Success
-- Player can move and shoot
-- Basic enemies spawn and can be killed
-- Game doesn't crash during basic gameplay
+### Gameplay Metrics
+- **Player Engagement**: Average session length > 10 minutes
+- **Difficulty Curve**: 90% of players reach wave 5, 50% reach wave 10
+- **Progression Feel**: Clear sense of character growth and improvement
+- **Performance**: Stable 60fps on target hardware
 
-### Phase 2 Success
-- Complete wave progression works
-- Level-up system provides meaningful choices
-- Basic survival gameplay loop is engaging
+### Technical Metrics
+- **Build Time**: < 30 seconds for incremental builds
+- **Memory Usage**: < 512MB RAM on desktop
+- **Load Time**: < 5 seconds to main menu
+- **Crash Rate**: < 1% session crash rate
 
-### Phase 3 Success
-- Shop system adds strategic depth
-- Multiple weapons feel distinct and useful
-- Players can survive 10+ waves with different strategies
-
-### Phase 4 Success
-- Game feels polished and "juicy"
-- Audio/visual feedback enhances gameplay
-- Performance is stable on target hardware
-
-### Final Success
-- Game provides 30+ minutes of engaging gameplay
-- Difficulty curve keeps players challenged but not frustrated
-- Replay value through different upgrade paths
-- Positive player feedback on core gameplay loop
-
-## Getting Started
-
-### Immediate Next Steps (This Week)
-1. **Fix Plugin Implementation**: Research Fyrox's plugin system and implement proper traits
-2. **Create Basic Scene**: Set up a simple 3D arena scene for testing
-3. **Implement Player Movement**: Get basic WASD movement working
-4. **Basic Enemy Spawning**: Create simple enemy that spawns and moves toward player
-
-### Development Environment Setup
-1. Ensure Fyrox editor is working with the project
-2. Set up version control best practices
-3. Create test scenes for rapid iteration
-4. Set up asset pipeline for 3D models and effects
-
-This roadmap provides a clear path from the current base structure to a complete, polished game while maintaining focus on core gameplay and iterative development.
+This roadmap will be updated as development progresses and priorities shift based on feedback and testing results.

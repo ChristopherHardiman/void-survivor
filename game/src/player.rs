@@ -1,20 +1,23 @@
 //! Player system - handles movement, weapons, and stats
-use fyrox::{
-    core::{
-        algebra::{Vector2, Vector3},
-        pool::Handle,
-        reflect::prelude::*,
-        visitor::prelude::*,
-    },
-    scene::{
-        node::Node,
-        transform::Transform,
-        Scene,
-    },
-    script::{ScriptContext, ScriptTrait},
-};
+use bevy::prelude::*;
+use crate::{GameState, GameEntity};
 
-#[derive(Clone, Debug, Reflect, Visit, Default)]
+pub struct PlayerPlugin;
+
+impl Plugin for PlayerPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_systems(OnEnter(GameState::Playing), spawn_player)
+            .add_systems(Update, (
+                player_movement_system,
+                player_shooting_system,
+                player_stats_system,
+                update_projectiles_system,
+            ).run_if(in_state(GameState::Playing)));
+    }
+}
+
+#[derive(Component)]
 pub struct Player {
     // Core stats
     pub health: f32,
@@ -28,8 +31,6 @@ pub struct Player {
     
     // Movement
     pub speed: f32,
-    pub movement_input: Vector2<f32>,
-    pub aim_direction: Vector3<f32>,
     
     // Weapons
     pub primary_weapon: WeaponType,
@@ -41,7 +42,21 @@ pub struct Player {
     pub is_alive: bool,
 }
 
-#[derive(Clone, Debug, Reflect, Visit)]
+#[derive(Component)]
+pub struct PlayerMovement {
+    pub velocity: Vec3,
+    pub max_speed: f32,
+}
+
+#[derive(Component)]
+pub struct PlayerWeapon {
+    pub weapon_type: WeaponType,
+    pub last_shot: f32,
+    pub fire_rate: f32,
+    pub damage: f32,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum WeaponType {
     Blaster,
     Laser,
@@ -52,6 +67,12 @@ pub enum WeaponType {
 impl Default for WeaponType {
     fn default() -> Self {
         WeaponType::Blaster
+    }
+}
+
+impl Default for Player {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -66,9 +87,7 @@ impl Player {
             max_special_energy: 100.0,
             experience: 0.0,
             level: 1,
-            speed: 5.0,
-            movement_input: Vector2::default(),
-            aim_direction: Vector3::new(0.0, 0.0, 1.0),
+            speed: 300.0, // pixels per second
             primary_weapon: WeaponType::Blaster,
             fire_rate: 5.0, // shots per second
             last_shot_time: 0.0,
@@ -112,37 +131,224 @@ impl Player {
     }
 }
 
-impl ScriptTrait for Player {
-    fn on_init(&mut self, _ctx: &mut ScriptContext) {
-        // Initialize player
-    }
+// Projectile system
+#[derive(Component)]
+pub struct Projectile {
+    pub velocity: Vec3,
+    pub damage: f32,
+    pub lifetime: f32,
+    pub max_lifetime: f32,
+}
+
+// Systems
+fn spawn_player(mut commands: Commands) {
+    info!("Spawning player");
     
-    fn on_start(&mut self, _ctx: &mut ScriptContext) {
-        // Start logic
-    }
-    
-    fn on_update(&mut self, ctx: &mut ScriptContext) {
-        // Update player logic - movement, input handling, etc.
-        self.update_movement(ctx);
-        self.update_weapons(ctx);
+    commands.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                color: Color::BLUE,
+                custom_size: Some(Vec2::new(30.0, 40.0)),
+                ..default()
+            },
+            transform: Transform::from_xyz(0.0, 0.0, 1.0),
+            ..default()
+        },
+        Player::new(),
+        PlayerMovement {
+            velocity: Vec3::ZERO,
+            max_speed: 300.0,
+        },
+        PlayerWeapon {
+            weapon_type: WeaponType::Blaster,
+            last_shot: 0.0,
+            fire_rate: 5.0,
+            damage: 20.0,
+        },
+        GameEntity,
+        Name::new("Player"),
+    ));
+}
+
+fn player_movement_system(
+    keyboard_input: Res<Input<KeyCode>>,
+    time: Res<Time>,
+    mut query: Query<(&mut Transform, &mut PlayerMovement, &Player)>,
+) {
+    for (mut transform, mut movement, player) in query.iter_mut() {
+        if !player.is_alive {
+            continue;
+        }
+        
+        let mut direction = Vec3::ZERO;
+        
+        // WASD movement
+        if keyboard_input.pressed(KeyCode::W) || keyboard_input.pressed(KeyCode::Up) {
+            direction.y += 1.0;
+        }
+        if keyboard_input.pressed(KeyCode::S) || keyboard_input.pressed(KeyCode::Down) {
+            direction.y -= 1.0;
+        }
+        if keyboard_input.pressed(KeyCode::A) || keyboard_input.pressed(KeyCode::Left) {
+            direction.x -= 1.0;
+        }
+        if keyboard_input.pressed(KeyCode::D) || keyboard_input.pressed(KeyCode::Right) {
+            direction.x += 1.0;
+        }
+        
+        // Normalize diagonal movement
+        if direction.length() > 0.0 {
+            direction = direction.normalize();
+        }
+        
+        // Apply movement
+        movement.velocity = direction * movement.max_speed;
+        transform.translation += movement.velocity * time.delta_seconds();
+        
+        // Keep player in bounds (simple arena bounds)
+        let arena_bounds = 400.0;
+        transform.translation.x = transform.translation.x.clamp(-arena_bounds, arena_bounds);
+        transform.translation.y = transform.translation.y.clamp(-arena_bounds, arena_bounds);
     }
 }
 
-impl Player {
-    fn update_movement(&mut self, ctx: &mut ScriptContext) {
-        // Movement logic will be implemented here
-        if let Some(transform) = ctx.scene.graph[ctx.handle].cast_mut::<Transform>() {
-            let movement = Vector3::new(
-                self.movement_input.x * self.speed * ctx.dt,
-                0.0,
-                self.movement_input.y * self.speed * ctx.dt,
-            );
-            transform.set_position(transform.position() + movement);
+fn player_shooting_system(
+    mut commands: Commands,
+    mouse_input: Res<Input<MouseButton>>,
+    keyboard_input: Res<Input<KeyCode>>,
+    time: Res<Time>,
+    windows: Query<&Window>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<crate::MainCamera>>,
+    mut player_query: Query<(&Transform, &mut PlayerWeapon, &mut Player)>,
+) {
+    for (player_transform, mut weapon, mut player) in player_query.iter_mut() {
+        if !player.is_alive {
+            continue;
+        }
+        
+        let current_time = time.elapsed_seconds();
+        
+        // Check if player wants to shoot
+        let wants_to_shoot = mouse_input.pressed(MouseButton::Left) || 
+                           keyboard_input.pressed(KeyCode::Space);
+        
+        if wants_to_shoot && player.can_shoot(current_time) {
+            // Get mouse position for aiming
+            if let Ok(window) = windows.get_single() {
+                if let Ok((camera, camera_transform)) = camera_query.get_single() {
+                    if let Some(cursor_pos) = window.cursor_position() {
+                        // Convert screen coordinates to world coordinates
+                        let window_size = Vec2::new(window.width(), window.height());
+                        
+                        // Convert screen position to world position
+                        let ndc = (cursor_pos / window_size) * 2.0 - Vec2::ONE;
+                        let ndc = Vec3::new(ndc.x, -ndc.y, 0.0);
+                        
+                        // Simple world position calculation for 2D
+                        let world_pos = Vec3::new(
+                            ndc.x * window_size.x * 0.5,
+                            ndc.y * window_size.y * 0.5,
+                            0.0
+                        );
+                        
+                        // Calculate shooting direction
+                        let direction = (world_pos - player_transform.translation).normalize();
+                        
+                        // Spawn projectile
+                        spawn_projectile(
+                            &mut commands,
+                            player_transform.translation,
+                            direction,
+                            &weapon.weapon_type,
+                            weapon.damage,
+                        );
+                        
+                        // Update last shot time
+                        weapon.last_shot = current_time;
+                        player.last_shot_time = current_time;
+                    }
+                }
+            }
         }
     }
+}
+
+fn player_stats_system(
+    time: Res<Time>,
+    mut query: Query<&mut Player>,
+) {
+    for mut player in query.iter_mut() {
+        let dt = time.delta_seconds();
+        
+        // Regenerate shields after delay
+        if player.shields < player.max_shields {
+            // Simple shield regen - could be made more sophisticated
+            player.shields = (player.shields + 10.0 * dt).min(player.max_shields);
+        }
+        
+        // Regenerate special energy
+        if player.special_energy < player.max_special_energy {
+            player.special_energy = (player.special_energy + 20.0 * dt).min(player.max_special_energy);
+        }
+    }
+}
+
+fn spawn_projectile(
+    commands: &mut Commands,
+    position: Vec3,
+    direction: Vec3,
+    weapon_type: &WeaponType,
+    damage: f32,
+) {
+    let (speed, lifetime, color) = match weapon_type {
+        WeaponType::Blaster => (800.0, 2.0, Color::YELLOW),
+        WeaponType::Laser => (1200.0, 1.5, Color::RED),
+        WeaponType::Rocket => (600.0, 3.0, Color::ORANGE),
+        WeaponType::AoePulse => (400.0, 1.0, Color::PURPLE),
+    };
     
-    fn update_weapons(&mut self, ctx: &mut ScriptContext) {
-        // Weapon logic will be implemented here
-        // Handle firing, cooldowns, etc.
+    commands.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                color,
+                custom_size: Some(Vec2::new(8.0, 16.0)),
+                ..default()
+            },
+            transform: Transform::from_translation(position),
+            ..default()
+        },
+        Projectile {
+            velocity: direction * speed,
+            damage,
+            lifetime: 0.0,
+            max_lifetime: lifetime,
+        },
+        GameEntity,
+        Name::new("Projectile"),
+    ));
+}
+
+// Update projectiles
+pub fn update_projectiles_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut Transform, &mut Projectile)>,
+) {
+    for (entity, mut transform, mut projectile) in query.iter_mut() {
+        // Move projectile
+        transform.translation += projectile.velocity * time.delta_seconds();
+        
+        // Update lifetime
+        projectile.lifetime += time.delta_seconds();
+        
+        // Remove if expired
+        if projectile.lifetime >= projectile.max_lifetime {
+            commands.entity(entity).despawn();
+        }
+        
+        // Remove if out of bounds
+        if transform.translation.length() > 1000.0 {
+            commands.entity(entity).despawn();
+        }
     }
 }

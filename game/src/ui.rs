@@ -1,366 +1,402 @@
-//! UI system - HUD, menus, level-up screen, and shop interface
-use fyrox::{
-    core::{
-        algebra::Vector2,
-        reflect::prelude::*,
-        visitor::prelude::*,
-    },
-    gui::{
-        button::ButtonBuilder,
-        grid::{GridBuilder, Column, Row},
-        text::TextBuilder,
-        widget::WidgetBuilder,
-        UiNode, BuildContext,
-    },
-};
+//! UI system - handles HUD, menus, and user interface
+use bevy::prelude::*;
+use crate::{GameState};
+use crate::player::Player;
+use crate::wave::WaveManager;
 
-use crate::{
-    player::Player,
-    wave::WaveManager,
-    upgrade::{Upgrade, UpgradeManager},
-};
+pub struct UIPlugin;
 
-#[derive(Clone, Debug, Reflect, Visit, Default)]
-pub struct UIManager {
-    // HUD elements
-    pub health_bar: Option<UiNode>,
-    pub shield_bar: Option<UiNode>,
-    pub exp_bar: Option<UiNode>,
-    pub wave_info: Option<UiNode>,
-    pub currency_display: Option<UiNode>,
-    
-    // Overlays
-    pub levelup_panel: Option<UiNode>,
-    pub shop_panel: Option<UiNode>,
-    pub pause_panel: Option<UiNode>,
-    
-    // State
-    pub is_levelup_open: bool,
-    pub is_shop_open: bool,
-    pub is_paused: bool,
-    pub current_currency: u32,
+impl Plugin for UIPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_systems(OnEnter(GameState::Playing), setup_game_ui)
+            .add_systems(Update, (
+                update_health_bar,
+                update_wave_info,
+                update_player_stats,
+            ).run_if(in_state(GameState::Playing)))
+            .add_systems(OnEnter(GameState::MainMenu), setup_main_menu)
+            .add_systems(Update, main_menu_system.run_if(in_state(GameState::MainMenu)))
+            .add_systems(OnExit(GameState::MainMenu), cleanup_main_menu);
+    }
 }
 
-impl UIManager {
-    pub fn new() -> Self {
-        Self::default()
-    }
-    
-    pub fn build_hud(&mut self, ctx: &mut BuildContext) {
-        // Health Bar
-        self.health_bar = Some(
-            GridBuilder::new(
-                WidgetBuilder::new()
-                    .with_name("HealthBar")
-                    .with_width(200.0)
-                    .with_height(20.0)
-            )
-            .add_row(Row::stretch())
-            .add_column(Column::stretch())
-            .with_child(
-                TextBuilder::new(
-                    WidgetBuilder::new()
-                ).with_text("Health: 100/100")
-                .build(ctx)
-            )
-            .build(ctx)
-        );
-        
-        // Shield Bar
-        self.shield_bar = Some(
-            GridBuilder::new(
-                WidgetBuilder::new()
-                    .with_name("ShieldBar")
-                    .with_width(200.0)
-                    .with_height(20.0)
-            )
-            .add_row(Row::stretch())
-            .add_column(Column::stretch())
-            .with_child(
-                TextBuilder::new(
-                    WidgetBuilder::new()
-                ).with_text("Shields: 50/50")
-                .build(ctx)
-            )
-            .build(ctx)
-        );
-        
-        // Experience Bar
-        self.exp_bar = Some(
-            GridBuilder::new(
-                WidgetBuilder::new()
-                    .with_name("ExpBar")
-                    .with_width(300.0)
-                    .with_height(20.0)
-            )
-            .add_row(Row::stretch())
-            .add_column(Column::stretch())
-            .with_child(
-                TextBuilder::new(
-                    WidgetBuilder::new()
-                ).with_text("Level 1 - EXP: 0/100")
-                .build(ctx)
-            )
-            .build(ctx)
-        );
-        
-        // Wave Info
-        self.wave_info = Some(
-            GridBuilder::new(
-                WidgetBuilder::new()
-                    .with_name("WaveInfo")
-                    .with_width(200.0)
-                    .with_height(20.0)
-            )
-            .add_row(Row::stretch())
-            .add_column(Column::stretch())
-            .with_child(
-                TextBuilder::new(
-                    WidgetBuilder::new()
-                ).with_text("Wave 1")
-                .build(ctx)
-            )
-            .build(ctx)
-        );
-        
-        // Currency Display
-        self.currency_display = Some(
-            GridBuilder::new(
-                WidgetBuilder::new()
-                    .with_name("Currency")
-                    .with_width(150.0)
-                    .with_height(20.0)
-            )
-            .add_row(Row::stretch())
-            .add_column(Column::stretch())
-            .with_child(
-                TextBuilder::new(
-                    WidgetBuilder::new()
-                ).with_text("Credits: 0")
-                .build(ctx)
-            )
-            .build(ctx)
-        );
-    }
-    
-    pub fn build_levelup_screen(&mut self, ctx: &mut BuildContext, upgrades: &[Upgrade]) {
-        // Create level-up panel with upgrade choices
-        self.levelup_panel = Some(
-            GridBuilder::new(
-                WidgetBuilder::new()
-                    .with_name("LevelUpPanel")
-                    .with_width(600.0)
-                    .with_height(400.0)
-            )
-            .add_row(Row::strict(40.0)) // Title
-            .add_row(Row::stretch())    // Upgrade choices
-            .add_column(Column::stretch())
-            .with_child(
-                TextBuilder::new(
-                    WidgetBuilder::new()
-                        .on_row(0)
-                        .on_column(0)
-                ).with_text("LEVEL UP! Choose an upgrade:")
-                .build(ctx)
-            )
-            .with_child(
-                self.build_upgrade_grid(ctx, upgrades)
-            )
-            .build(ctx)
-        );
-        
-        self.is_levelup_open = true;
-    }
-    
-    pub fn build_shop_screen(&mut self, ctx: &mut BuildContext, shop_items: &[Upgrade]) {
-        // Create shop panel with purchasable items
-        self.shop_panel = Some(
-            GridBuilder::new(
-                WidgetBuilder::new()
-                    .with_name("ShopPanel")
-                    .with_width(800.0)
-                    .with_height(600.0)
-            )
-            .add_row(Row::strict(40.0)) // Title
-            .add_row(Row::stretch())    // Shop items
-            .add_row(Row::strict(60.0)) // Continue button
-            .add_column(Column::stretch())
-            .with_child(
-                TextBuilder::new(
-                    WidgetBuilder::new()
-                        .on_row(0)
-                        .on_column(0)
-                ).with_text("SHOP - Upgrade your ship between waves")
-                .build(ctx)
-            )
-            .with_child(
-                self.build_shop_grid(ctx, shop_items)
-            )
-            .with_child(
-                ButtonBuilder::new(
-                    WidgetBuilder::new()
-                        .on_row(2)
-                        .on_column(0)
-                        .with_width(200.0)
-                        .with_height(40.0)
-                ).with_text("Continue to Next Wave")
-                .build(ctx)
-            )
-            .build(ctx)
-        );
-        
-        self.is_shop_open = true;
-    }
-    
-    pub fn update_hud(&mut self, ctx: &mut BuildContext, player: &Player, wave_manager: &WaveManager) {
+// UI Components
+#[derive(Component)]
+pub struct GameUI;
+
+#[derive(Component)]
+pub struct HealthBar;
+
+#[derive(Component)]
+pub struct ShieldBar;
+
+#[derive(Component)]
+pub struct WaveText;
+
+#[derive(Component)]
+pub struct LevelText;
+
+#[derive(Component)]
+pub struct ExperienceBar;
+
+#[derive(Component)]
+pub struct MainMenuUI;
+
+#[derive(Component)]
+pub struct PlayButton;
+
+// Game UI Setup
+fn setup_game_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // Root UI node
+    commands
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    justify_content: JustifyContent::SpaceBetween,
+                    ..default()
+                },
+                ..default()
+            },
+            GameUI,
+        ))
+        .with_children(|parent| {
+            // Top bar (wave info, level)
+            parent
+                .spawn(NodeBundle {
+                    style: Style {
+                        width: Val::Percent(100.0),
+                        height: Val::Px(60.0),
+                        padding: UiRect::all(Val::Px(10.0)),
+                        justify_content: JustifyContent::SpaceBetween,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: Color::rgba(0.0, 0.0, 0.0, 0.5).into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    // Wave info
+                    parent.spawn((
+                        TextBundle::from_section(
+                            "Wave: 1",
+                            TextStyle {
+                                font: asset_server.load("fonts/game_font.ttf"),
+                                font_size: 24.0,
+                                color: Color::WHITE,
+                            },
+                        ),
+                        WaveText,
+                    ));
+                    
+                    // Level info
+                    parent.spawn((
+                        TextBundle::from_section(
+                            "Level: 1",
+                            TextStyle {
+                                font: asset_server.load("fonts/game_font.ttf"),
+                                font_size: 24.0,
+                                color: Color::YELLOW,
+                            },
+                        ),
+                        LevelText,
+                    ));
+                });
+            
+            // Bottom bar (health, shields, experience)
+            parent
+                .spawn(NodeBundle {
+                    style: Style {
+                        width: Val::Percent(100.0),
+                        height: Val::Px(80.0),
+                        padding: UiRect::all(Val::Px(10.0)),
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    background_color: Color::rgba(0.0, 0.0, 0.0, 0.5).into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    // Health bar container
+                    parent
+                        .spawn(NodeBundle {
+                            style: Style {
+                                width: Val::Percent(60.0),
+                                height: Val::Px(20.0),
+                                margin: UiRect::bottom(Val::Px(5.0)),
+                                border: UiRect::all(Val::Px(2.0)),
+                                ..default()
+                            },
+                            background_color: Color::DARK_GRAY.into(),
+                            border_color: Color::WHITE.into(),
+                            ..default()
+                        })
+                        .with_children(|parent| {
+                            parent.spawn((
+                                NodeBundle {
+                                    style: Style {
+                                        width: Val::Percent(100.0),
+                                        height: Val::Percent(100.0),
+                                        ..default()
+                                    },
+                                    background_color: Color::RED.into(),
+                                    ..default()
+                                },
+                                HealthBar,
+                            ));
+                        });
+                    
+                    // Shield bar container
+                    parent
+                        .spawn(NodeBundle {
+                            style: Style {
+                                width: Val::Percent(60.0),
+                                height: Val::Px(15.0),
+                                margin: UiRect::bottom(Val::Px(5.0)),
+                                border: UiRect::all(Val::Px(2.0)),
+                                ..default()
+                            },
+                            background_color: Color::DARK_GRAY.into(),
+                            border_color: Color::CYAN.into(),
+                            ..default()
+                        })
+                        .with_children(|parent| {
+                            parent.spawn((
+                                NodeBundle {
+                                    style: Style {
+                                        width: Val::Percent(100.0),
+                                        height: Val::Percent(100.0),
+                                        ..default()
+                                    },
+                                    background_color: Color::CYAN.into(),
+                                    ..default()
+                                },
+                                ShieldBar,
+                            ));
+                        });
+                    
+                    // Experience bar container
+                    parent
+                        .spawn(NodeBundle {
+                            style: Style {
+                                width: Val::Percent(60.0),
+                                height: Val::Px(10.0),
+                                border: UiRect::all(Val::Px(2.0)),
+                                ..default()
+                            },
+                            background_color: Color::DARK_GRAY.into(),
+                            border_color: Color::YELLOW.into(),
+                            ..default()
+                        })
+                        .with_children(|parent| {
+                            parent.spawn((
+                                NodeBundle {
+                                    style: Style {
+                                        width: Val::Percent(0.0),
+                                        height: Val::Percent(100.0),
+                                        ..default()
+                                    },
+                                    background_color: Color::YELLOW.into(),
+                                    ..default()
+                                },
+                                ExperienceBar,
+                            ));
+                        });
+                });
+        });
+}
+
+// Main Menu Setup
+fn setup_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+                background_color: Color::rgba(0.0, 0.0, 0.2, 0.8).into(),
+                ..default()
+            },
+            MainMenuUI,
+        ))
+        .with_children(|parent| {
+            // Title
+            parent.spawn(TextBundle::from_section(
+                "Bevy Arena Survivor",
+                TextStyle {
+                    font: asset_server.load("fonts/game_font.ttf"),
+                    font_size: 48.0,
+                    color: Color::WHITE,
+                },
+            ).with_style(Style {
+                margin: UiRect::bottom(Val::Px(50.0)),
+                ..default()
+            }));
+            
+            // Play button
+            parent
+                .spawn((
+                    ButtonBundle {
+                        style: Style {
+                            width: Val::Px(200.0),
+                            height: Val::Px(60.0),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            margin: UiRect::bottom(Val::Px(20.0)),
+                            ..default()
+                        },
+                        background_color: Color::rgb(0.2, 0.4, 0.8).into(),
+                        ..default()
+                    },
+                    PlayButton,
+                ))
+                .with_children(|parent| {
+                    parent.spawn(TextBundle::from_section(
+                        "Play",
+                        TextStyle {
+                            font: asset_server.load("fonts/game_font.ttf"),
+                            font_size: 24.0,
+                            color: Color::WHITE,
+                        },
+                    ));
+                });
+        });
+}
+
+// Update Systems
+fn update_health_bar(
+    player_query: Query<&Player>,
+    mut health_bar_query: Query<&mut Style, With<HealthBar>>,
+    mut shield_bar_query: Query<&mut Style, (With<ShieldBar>, Without<HealthBar>)>,
+) {
+    if let Ok(player) = player_query.get_single() {
         // Update health bar
-        if let Some(_health_bar) = self.health_bar {
-            // Update health bar visual
-            // In a real implementation, you'd update the bar's fill percentage
+        if let Ok(mut style) = health_bar_query.get_single_mut() {
+            let health_percent = (player.health / player.max_health).clamp(0.0, 1.0);
+            style.width = Val::Percent(health_percent * 100.0);
         }
         
         // Update shield bar
-        if let Some(_shield_bar) = self.shield_bar {
-            // Update shield bar visual
+        if let Ok(mut style) = shield_bar_query.get_single_mut() {
+            let shield_percent = (player.shields / player.max_shields).clamp(0.0, 1.0);
+            style.width = Val::Percent(shield_percent * 100.0);
         }
-        
-        // Update experience bar
-        if let Some(_exp_bar) = self.exp_bar {
-            // Update exp bar visual and text
-        }
-        
-        // Update wave info
-        if let Some(_wave_info) = self.wave_info {
-            // Update wave number and timer
-        }
-        
-        // Update currency
-        if let Some(_currency_display) = self.currency_display {
-            // Update currency amount
-        }
-    }
-    
-    pub fn close_levelup_screen(&mut self) {
-        self.is_levelup_open = false;
-        if let Some(_panel) = self.levelup_panel.take() {
-            // Remove panel from UI
-        }
-    }
-    
-    pub fn close_shop_screen(&mut self) {
-        self.is_shop_open = false;
-        if let Some(_panel) = self.shop_panel.take() {
-            // Remove panel from UI
-        }
-    }
-    
-    pub fn handle_levelup_choice(&mut self, choice_index: usize, upgrade_manager: &mut UpgradeManager, player: &mut Player) {
-        // Handle the player's upgrade choice
-        let choices = upgrade_manager.get_levelup_choices(3);
-        if let Some(chosen_upgrade) = choices.get(choice_index) {
-            upgrade_manager.apply_upgrade(chosen_upgrade.clone(), player);
-            self.close_levelup_screen();
-        }
-    }
-    
-    pub fn handle_shop_purchase(&mut self, item_index: usize, upgrade_manager: &mut UpgradeManager, player: &mut Player) -> bool {
-        // Handle shop item purchase
-        let shop_items = upgrade_manager.get_shop_items();
-        if let Some(item) = shop_items.get(item_index) {
-            let cost = item.get_current_cost();
-            if self.current_currency >= cost {
-                self.current_currency -= cost;
-                upgrade_manager.apply_upgrade(item.clone(), player);
-                return true;
-            }
-        }
-        false
-    }
-    
-    pub fn add_currency(&mut self, amount: u32) {
-        self.current_currency += amount;
-    }
-    
-    fn build_upgrade_grid(&self, ctx: &mut BuildContext, upgrades: &[Upgrade]) -> UiNode {
-        let mut grid = GridBuilder::new(
-            WidgetBuilder::new()
-                .on_row(1)
-                .on_column(0)
-        );
-        
-        // Add rows and columns based on upgrade count
-        for i in 0..upgrades.len() {
-            grid = grid.add_row(Row::strict(100.0));
-        }
-        grid = grid.add_column(Column::stretch());
-        
-        // Add upgrade buttons
-        for (i, upgrade) in upgrades.iter().enumerate() {
-            let button = ButtonBuilder::new(
-                WidgetBuilder::new()
-                    .on_row(i)
-                    .on_column(0)
-                    .with_width(500.0)
-                    .with_height(80.0)
-            )
-            .with_text(&format!("{}\n{}", upgrade.name, upgrade.description))
-            .build(ctx);
-            
-            grid = grid.with_child(button);
-        }
-        
-        grid.build(ctx)
-    }
-    
-    fn build_shop_grid(&self, ctx: &mut BuildContext, items: &[Upgrade]) -> UiNode {
-        let mut grid = GridBuilder::new(
-            WidgetBuilder::new()
-                .on_row(1)
-                .on_column(0)
-        );
-        
-        // Add rows and columns based on item count
-        for i in 0..items.len() {
-            grid = grid.add_row(Row::strict(120.0));
-        }
-        grid = grid.add_column(Column::stretch());
-        
-        // Add shop item buttons
-        for (i, item) in items.iter().enumerate() {
-            let cost = item.get_current_cost();
-            let can_afford = self.current_currency >= cost;
-            
-            let button_text = format!(
-                "{}\n{}\nCost: {} Credits{}",
-                item.name,
-                item.description,
-                cost,
-                if can_afford { "" } else { " (Cannot Afford)" }
-            );
-            
-            let button = ButtonBuilder::new(
-                WidgetBuilder::new()
-                    .on_row(i)
-                    .on_column(0)
-                    .with_width(700.0)
-                    .with_height(100.0)
-                    .with_enabled(can_afford)
-            )
-            .with_text(&button_text)
-            .build(ctx);
-            
-            grid = grid.with_child(button);
-        }
-        
-        grid.build(ctx)
     }
 }
 
+fn update_wave_info(
+    wave_manager: Res<WaveManager>,
+    mut wave_text_query: Query<&mut Text, With<WaveText>>,
+) {
+    if let Ok(mut text) = wave_text_query.get_single_mut() {
+        text.sections[0].value = format!("Wave: {}", wave_manager.current_wave);
+    }
+}
+
+fn update_player_stats(
+    player_query: Query<&Player>,
+    mut level_text_query: Query<&mut Text, (With<LevelText>, Without<ExperienceBar>)>,
+    mut exp_bar_query: Query<&mut Style, With<ExperienceBar>>,
+) {
+    if let Ok(player) = player_query.get_single() {
+        // Update level text
+        if let Ok(mut text) = level_text_query.get_single_mut() {
+            text.sections[0].value = format!("Level: {}", player.level);
+        }
+        
+        // Update experience bar
+        if let Ok(mut style) = exp_bar_query.get_single_mut() {
+            let exp_needed = player.level as f32 * 100.0;
+            let exp_percent = (player.experience / exp_needed).clamp(0.0, 1.0);
+            style.width = Val::Percent(exp_percent * 100.0);
+        }
+    }
+}
+
+// Menu Systems
+fn main_menu_system(
+    mut interaction_query: Query<
+        (&Interaction, &mut BackgroundColor),
+        (Changed<Interaction>, With<PlayButton>),
+    >,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    for (interaction, mut color) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                next_state.set(GameState::Playing);
+            }
+            Interaction::Hovered => {
+                *color = Color::rgb(0.3, 0.5, 0.9).into();
+            }
+            Interaction::None => {
+                *color = Color::rgb(0.2, 0.4, 0.8).into();
+            }
+        }
+    }
+}
+
+// Cleanup Systems
+fn cleanup_main_menu(
+    mut commands: Commands,
+    menu_query: Query<Entity, With<MainMenuUI>>,
+) {
+    for entity in menu_query.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+}
+
+// Upgrade selection UI (for later implementation)
+#[derive(Component)]
+pub struct UpgradeSelectionUI;
+
+#[derive(Component)]
+pub struct UpgradeButton {
+    pub upgrade_type: UpgradeType,
+}
+
 #[derive(Clone, Debug)]
-pub enum UIEvent {
-    LevelUpChoice(usize),
-    ShopPurchase(usize),
-    ContinueToNextWave,
-    PauseWave,
-    ResumeWave,
+pub enum UpgradeType {
+    HealthBoost,
+    ShieldBoost,
+    DamageBoost,
+    FireRateBoost,
+    SpeedBoost,
+    NewWeapon,
+}
+
+// Death screen UI
+pub fn setup_death_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            background_color: Color::rgba(0.8, 0.0, 0.0, 0.7).into(),
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "GAME OVER",
+                TextStyle {
+                    font: asset_server.load("fonts/game_font.ttf"),
+                    font_size: 48.0,
+                    color: Color::WHITE,
+                },
+            ));
+        });
 }
