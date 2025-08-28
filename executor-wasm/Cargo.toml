@@ -1,0 +1,12 @@
+
+[package]
+name = "executor-wasm"
+version = "0.0.1-init"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+fyrox = {workspace = true}
+void_survivor = { path = "../game" }
