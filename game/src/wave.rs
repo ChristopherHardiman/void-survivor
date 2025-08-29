@@ -73,14 +73,14 @@ impl WaveManager {
         use rand::Rng;
         let mut rng = rand::thread_rng();
         
-        // Spawn at random position around the arena edge
+        // Spawn at random position around the arena edge for top-down view
         let angle = rng.gen_range(0.0..std::f32::consts::TAU);
         let distance = arena_bounds + 50.0; // Just outside the arena
         
         Vec3::new(
             angle.cos() * distance,
+            0.0, // Keep Y at ground level
             angle.sin() * distance,
-            0.0,
         )
     }
     

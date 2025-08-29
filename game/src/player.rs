@@ -1,6 +1,7 @@
 //! Player system - handles player movement, shooting, and health
 use bevy::prelude::*;
-use bevy::render::mesh::shape;
+use bevy::input::mouse::MouseButton;
+use bevy_rapier3d::prelude::*;
 use crate::{GameState, GameEntity};
 
 pub struct PlayerPlugin;
@@ -47,6 +48,9 @@ pub struct Player {
 pub struct PlayerMovement {
     pub velocity: Vec3,
     pub max_speed: f32,
+    pub thrust_force: f32,
+    pub turn_speed: f32,
+    pub current_direction: f32, // Angle in radians, 0 = forward (positive Z)
 }
 
 #[derive(Component)]
@@ -142,29 +146,33 @@ pub struct Projectile {
 }
 
 // Systems
-fn spawn_player(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
+fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
     info!("Spawning player");
     
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Capsule {
-                radius: 0.3,
-                depth: 1.0,
-                ..default()
-            })),
-            material: materials.add(StandardMaterial {
-                base_color: Color::BLUE,
-                metallic: 0.1,
-                perceptual_roughness: 0.8,
-                ..default()
-            }),
-            transform: Transform::from_xyz(0.0, 0.5, 0.0), // Lift off ground
+        SceneBundle {
+            scene: asset_server.load("models/player_fighter.gltf#Scene0"),
+            transform: Transform::from_xyz(0.0, 0.5, 0.0) // Lift off ground
+                .with_scale(Vec3::splat(0.5)), // Scale down the fighter model
             ..default()
         },
+        // Physics components
+        RigidBody::Dynamic,
+        Collider::capsule_y(0.5, 0.3), // Capsule collider for the ship
+        ColliderMassProperties::Density(2.0),
+        Velocity::zero(),
+        Damping {
+            linear_damping: 0.8, // Reduced damping for smoother deceleration
+            angular_damping: 5.0, // Ship stops rotating quickly
+        },
+        LockedAxes::ROTATION_LOCKED | LockedAxes::TRANSLATION_LOCKED_Y, // Lock Y rotation and movement
         Player::new(),
         PlayerMovement {
             velocity: Vec3::ZERO,
             max_speed: 300.0,
+            thrust_force: 500.0,
+            turn_speed: 3.0,
+            current_direction: 0.0, // Start facing forward (positive Z)
         },
         PlayerWeapon {
             weapon_type: WeaponType::Blaster,
@@ -180,49 +188,77 @@ fn spawn_player(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut ma
 fn player_movement_system(
     keyboard_input: Res<Input<KeyCode>>,
     time: Res<Time>,
-    mut query: Query<(&mut Transform, &mut PlayerMovement, &Player)>,
+    mut query: Query<(&mut Transform, &mut PlayerMovement, &mut Velocity, &Player)>,
 ) {
-    for (mut transform, mut movement, player) in query.iter_mut() {
+    for (mut transform, mut movement, mut velocity, player) in query.iter_mut() {
         if !player.is_alive {
             continue;
         }
         
-        let mut direction = Vec3::ZERO;
+        let dt = time.delta_seconds();
         
-        // WASD movement
-        if keyboard_input.pressed(KeyCode::W) || keyboard_input.pressed(KeyCode::Up) {
-            direction.y += 1.0;
-        }
-        if keyboard_input.pressed(KeyCode::S) || keyboard_input.pressed(KeyCode::Down) {
-            direction.y -= 1.0;
-        }
+        // Handle turning with A and D keys
         if keyboard_input.pressed(KeyCode::A) || keyboard_input.pressed(KeyCode::Left) {
-            direction.x -= 1.0;
+            movement.current_direction -= movement.turn_speed * dt;
         }
         if keyboard_input.pressed(KeyCode::D) || keyboard_input.pressed(KeyCode::Right) {
-            direction.x += 1.0;
+            movement.current_direction += movement.turn_speed * dt;
         }
         
-        // Normalize diagonal movement
-        if direction.length() > 0.0 {
-            direction = direction.normalize();
+        // Normalize direction to keep it between -PI and PI
+        while movement.current_direction > std::f32::consts::PI {
+            movement.current_direction -= 2.0 * std::f32::consts::PI;
+        }
+        while movement.current_direction < -std::f32::consts::PI {
+            movement.current_direction += 2.0 * std::f32::consts::PI;
         }
         
-        // Apply movement
-        movement.velocity = direction * movement.max_speed;
-        transform.translation += movement.velocity * time.delta_seconds();
+        // Calculate forward direction based on current_direction
+        let forward = Vec3::new(
+            movement.current_direction.sin(),
+            0.0,
+            movement.current_direction.cos(),
+        );
         
-        // Keep player in bounds (simple arena bounds)
+        // Apply thrust with W key
+        if keyboard_input.pressed(KeyCode::W) || keyboard_input.pressed(KeyCode::Up) {
+            let thrust = forward * movement.thrust_force * dt;
+            velocity.linvel += thrust;
+        }
+        
+        // Optional: Add reverse thrust with S key (much weaker)
+        if keyboard_input.pressed(KeyCode::S) || keyboard_input.pressed(KeyCode::Down) {
+            let reverse_thrust = forward * movement.thrust_force * 0.3 * dt;
+            velocity.linvel -= reverse_thrust;
+        }
+        
+        // Limit maximum speed
+        if velocity.linvel.length() > movement.max_speed {
+            velocity.linvel = velocity.linvel.normalize() * movement.max_speed;
+        }
+        
+        // Update ship rotation to face movement direction
+        transform.rotation = Quat::from_rotation_y(movement.current_direction);
+        
+        // Keep player in bounds (arena bounds for X and Z axes)
         let arena_bounds = 400.0;
-        transform.translation.x = transform.translation.x.clamp(-arena_bounds, arena_bounds);
-        transform.translation.y = transform.translation.y.clamp(-arena_bounds, arena_bounds);
+        if transform.translation.x.abs() > arena_bounds || transform.translation.z.abs() > arena_bounds {
+            // Bounce off boundaries by reversing velocity component
+            if transform.translation.x.abs() > arena_bounds {
+                velocity.linvel.x *= -0.5;
+                transform.translation.x = transform.translation.x.signum() * arena_bounds;
+            }
+            if transform.translation.z.abs() > arena_bounds {
+                velocity.linvel.z *= -0.5;
+                transform.translation.z = transform.translation.z.signum() * arena_bounds;
+            }
+        }
     }
 }
 
 fn player_shooting_system(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
     mouse_input: Res<Input<MouseButton>>,
     keyboard_input: Res<Input<KeyCode>>,
     time: Res<Time>,
@@ -266,8 +302,7 @@ fn player_shooting_system(
                         // Spawn projectile
                         spawn_projectile(
                             &mut commands,
-                            &mut meshes,
-                            &mut materials,
+                            &asset_server,
                             player_transform.translation,
                             direction,
                             &weapon.weapon_type,
@@ -306,18 +341,17 @@ fn player_stats_system(
 
 fn spawn_projectile(
     commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
+    asset_server: &Res<AssetServer>,
     position: Vec3,
     direction: Vec3,
     weapon_type: &WeaponType,
     damage: f32,
 ) {
-    let (speed, lifetime, scale, color) = match weapon_type {
-        WeaponType::Blaster => (800.0, 2.0, 0.3, Color::YELLOW),
-        WeaponType::Laser => (1200.0, 1.5, 0.25, Color::RED),
-        WeaponType::Rocket => (600.0, 3.0, 0.4, Color::ORANGE),
-        WeaponType::AoePulse => (400.0, 1.0, 0.35, Color::PURPLE),
+    let (speed, lifetime, scale) = match weapon_type {
+        WeaponType::Blaster => (800.0, 2.0, 0.15),
+        WeaponType::Laser => (1200.0, 1.5, 0.12),
+        WeaponType::Rocket => (600.0, 3.0, 0.2),
+        WeaponType::AoePulse => (400.0, 1.0, 0.18),
     };
     
     // Calculate rotation to face the direction of travel
@@ -328,20 +362,8 @@ fn spawn_projectile(
     };
     
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cylinder {
-                radius: 0.08,
-                height: 0.3,
-                resolution: 8,
-                segments: 1,
-            })),
-            material: materials.add(StandardMaterial {
-                base_color: color,
-                emissive: color * 0.3, // Make projectiles glow
-                metallic: 0.2,
-                perceptual_roughness: 0.7,
-                ..default()
-            }),
+        SceneBundle {
+            scene: asset_server.load("models/stinger_missle.gltf#Scene0"),
             transform: Transform::from_translation(position)
                 .with_rotation(rotation)
                 .with_scale(Vec3::splat(scale)),

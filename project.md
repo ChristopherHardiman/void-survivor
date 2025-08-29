@@ -5,10 +5,10 @@ This will serve as your development blueprint — subsystems, milestones, and su
 ---
 
 ```markdown
-# Bevy Arena Survivor
+# Void Survivor
 
 ## Project Overview
-**Bevy Arena Survivor** is a 3D top-down arena survival shooter built with the Bevy game engine. Players control a spaceship in a confined arena, fighting waves of increasingly difficult enemies while collecting loot and upgrading their abilities.
+**Void Survivor** is a 3D top-down arena survival shooter built with the Bevy game engine. Players control a spaceship in a confined arena, fighting waves of increasingly difficult enemies while collecting loot and upgrading their abilities.
 
 ## Game Concept
 

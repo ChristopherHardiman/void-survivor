@@ -1,5 +1,6 @@
-//! Bevy Arena Survivor - Main Entry Point
+//! Void Survivor - Main Entry Point
 use bevy::prelude::*;
+use bevy_rapier3d::prelude::*;
 
 mod player;
 mod enemy;
@@ -10,6 +11,7 @@ mod ui;
 mod fx;
 mod audio;
 mod config;
+mod asteroid;
 
 use player::PlayerPlugin;
 use enemy::EnemyPlugin;
@@ -20,6 +22,7 @@ use ui::UIPlugin;
 use fx::FXPlugin;
 use audio::AudioPlugin;
 use config::ConfigPlugin;
+use asteroid::AsteroidPlugin;
 
 // Game states
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -81,7 +84,14 @@ fn main() {
             UIPlugin,
             FXPlugin,
             AudioPlugin,
+            AsteroidPlugin,
+            RapierPhysicsPlugin::<NoUserData>::default(),
+            RapierDebugRenderPlugin::default(), // Optional: for debugging physics shapes
         ))
+        .insert_resource(RapierConfiguration {
+            gravity: Vec3::ZERO, // Disable gravity for top-down space game
+            ..default()
+        })
         .add_systems(Startup, setup_game)
         .add_systems(Update, (
             handle_game_state_transitions,
@@ -91,11 +101,11 @@ fn main() {
 }
 
 fn setup_game(mut commands: Commands) {
-    // Setup 3D camera for isometric/top-down view
+    // Setup 3D camera for true top-down view
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(0.0, 15.0, 10.0)
-                .looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(0.0, 20.0, 0.0)
+                .looking_at(Vec3::ZERO, Vec3::NEG_Z), // Use negative Z as up vector for proper top-down orientation
             camera: Camera {
                 order: 0,
                 ..default()
@@ -165,21 +175,22 @@ fn update_camera_system(
 ) {
     if let Ok(mut camera_transform) = camera_query.get_single_mut() {
         if let Ok(player_transform) = player_query.get_single() {
-            // Smoothly follow player while maintaining 3D perspective
+            // Keep camera directly above the player for true top-down view
             let target = Vec3::new(
                 player_transform.translation.x,
-                15.0, // Keep camera height
-                player_transform.translation.z + 10.0, // Keep camera behind player
-            );
-            camera_transform.translation = camera_transform.translation.lerp(target, 0.05);
-            
-            // Always look at the player
-            let look_target = Vec3::new(
-                player_transform.translation.x,
-                player_transform.translation.y,
+                20.0, // Keep camera height constant
                 player_transform.translation.z,
             );
-            camera_transform.look_at(look_target, Vec3::Y);
+            // Use faster lerp for more responsive camera (0.15 instead of 0.05)
+            camera_transform.translation = camera_transform.translation.lerp(target, 0.15);
+            
+            // Always look straight down at the player with correct orientation
+            let look_target = Vec3::new(
+                player_transform.translation.x,
+                0.0, // Look at ground level
+                player_transform.translation.z,
+            );
+            camera_transform.look_at(look_target, Vec3::NEG_Z); // Use NEG_Z as up vector for consistent orientation
         }
     }
 }

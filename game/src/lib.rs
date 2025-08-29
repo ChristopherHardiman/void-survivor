@@ -1,4 +1,4 @@
-//! Bevy Arena Survivor - A top-down arena survival shooter
+//! Void Survivor - A top-down arena survival shooter
 //! 
 //! This game features:
 //! - Player movement and shooting
@@ -22,6 +22,7 @@ pub mod ui;
 pub mod fx;
 pub mod audio;
 pub mod config;
+pub mod asteroid;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 pub enum GameState {

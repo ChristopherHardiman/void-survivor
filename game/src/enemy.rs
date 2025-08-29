@@ -146,17 +146,17 @@ pub fn spawn_enemy(
 ) {
     let enemy = Enemy::new(enemy_type.clone());
     let (model_path, scale) = match enemy_type {
-        EnemyType::Chaser => ("models/orb.obj", 0.4),
-        EnemyType::Swarm => ("models/orb.obj", 0.3),
-        EnemyType::Shooter => ("models/orb.obj", 0.45),
-        EnemyType::Tank => ("models/orb_shield.obj", 0.6),
-        EnemyType::Elite => ("models/orb_shield.obj", 0.8),
-        EnemyType::Boss => ("models/orb_shield.obj", 1.2),
+        EnemyType::Chaser => ("models/orb.gltf", 0.4),
+        EnemyType::Swarm => ("models/orb.gltf", 0.3),
+        EnemyType::Shooter => ("models/orb.gltf", 0.45),
+        EnemyType::Tank => ("models/orb_shield.gltf", 0.6),
+        EnemyType::Elite => ("models/orb_shield.gltf", 0.8),
+        EnemyType::Boss => ("models/orb_shield.gltf", 1.2),
     };
     
     commands.spawn((
         SceneBundle {
-            scene: asset_server.load(model_path),
+            scene: asset_server.load(format!("{}#Scene0", model_path)),
             transform: Transform::from_translation(position)
                 .with_scale(Vec3::splat(scale)),
             ..default()
@@ -184,8 +184,10 @@ fn enemy_ai_system(
             
             match movement.behavior {
                 MovementBehavior::ChasePlayer => {
-                    // Calculate direction to player
-                    let direction = (player_transform.translation - transform.translation).normalize();
+                    // Calculate direction to player (only in X-Z plane for top-down)
+                    let mut direction = player_transform.translation - transform.translation;
+                    direction.y = 0.0; // Keep movement in horizontal plane
+                    direction = direction.normalize();
                     movement.velocity = direction * enemy.speed;
                     
                     // Apply movement
@@ -208,14 +210,18 @@ fn enemy_ai_system(
                     transform.translation += movement.velocity * dt;
                 }
                 MovementBehavior::Circle(center, radius) => {
-                    // Circular movement around a point
-                    let current_angle = (transform.translation - center).truncate().angle_between(Vec2::X);
+                    // Circular movement around a point in top-down view (X-Z plane)
+                    let current_pos_2d = Vec2::new(
+                        transform.translation.x - center.x,
+                        transform.translation.z - center.z,
+                    );
+                    let current_angle = current_pos_2d.angle_between(Vec2::X);
                     let new_angle = current_angle + enemy.speed * dt / radius;
                     
                     let new_pos = center + Vec3::new(
                         new_angle.cos() * radius,
+                        center.y, // Keep Y position same as center
                         new_angle.sin() * radius,
-                        transform.translation.z,
                     );
                     
                     movement.velocity = (new_pos - transform.translation) / dt;

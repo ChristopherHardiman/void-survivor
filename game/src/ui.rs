@@ -6,6 +6,7 @@
 //! http://antonbohlin.com/projects/woodwarrior
 //! http://creativecommons.org/licenses/by-sa/3.0/
 use bevy::prelude::*;
+use bevy_rapier3d::prelude::Velocity;
 use crate::{GameState};
 use crate::player::Player;
 use crate::wave::WaveManager;
@@ -20,6 +21,7 @@ impl Plugin for UIPlugin {
                 update_health_bar,
                 update_wave_info,
                 update_player_stats,
+                update_debug_display,
             ).run_if(in_state(GameState::Playing)))
             .add_systems(OnEnter(GameState::MainMenu), setup_main_menu)
             .add_systems(Update, main_menu_system.run_if(in_state(GameState::MainMenu)))
@@ -48,6 +50,9 @@ pub struct ExperienceBar;
 
 #[derive(Component)]
 pub struct MainMenuUI;
+
+#[derive(Component)]
+pub struct DebugDisplay;
 
 #[derive(Component)]
 pub struct PlayButton;
@@ -213,6 +218,34 @@ fn setup_game_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                             ));
                         });
                 });
+            
+            // Debug panel (top-right corner)
+            parent
+                .spawn(NodeBundle {
+                    style: Style {
+                        position_type: PositionType::Absolute,
+                        top: Val::Px(10.0),
+                        right: Val::Px(10.0),
+                        padding: UiRect::all(Val::Px(10.0)),
+                        flex_direction: FlexDirection::Column,
+                        ..default()
+                    },
+                    background_color: Color::rgba(0.0, 0.0, 0.0, 0.7).into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent.spawn((
+                        TextBundle::from_section(
+                            "Ship Debug Info\nX: 0.0\nY: 0.0\nZ: 0.0\nRotation: 0.0°\nSpeed: 0.0\nVel X: 0.0\nVel Z: 0.0",
+                            TextStyle {
+                                font: asset_server.load("ui/Woodwarrior-Regular.otf"),
+                                font_size: 16.0,
+                                color: Color::GREEN,
+                            },
+                        ),
+                        DebugDisplay,
+                    ));
+                });
         });
 }
 
@@ -325,6 +358,35 @@ fn update_player_stats(
             let exp_percent = (player.experience / exp_needed).clamp(0.0, 1.0);
             style.width = Val::Percent(exp_percent * 100.0);
         }
+    }
+}
+
+fn update_debug_display(
+    player_query: Query<(&Transform, &Velocity), With<Player>>,
+    mut debug_text_query: Query<&mut Text, With<DebugDisplay>>,
+) {
+    if let (Ok((transform, velocity)), Ok(mut text)) = (player_query.get_single(), debug_text_query.get_single_mut()) {
+        let position = transform.translation;
+        let rotation = transform.rotation;
+        let vel = velocity.linvel;
+        
+        // Convert quaternion to euler angles (radians) and then to degrees
+        let (_, y_rotation, _) = rotation.to_euler(EulerRot::XYZ);
+        let rotation_degrees = y_rotation.to_degrees();
+        
+        // Calculate speed (magnitude of velocity vector)
+        let speed = vel.length();
+        
+        text.sections[0].value = format!(
+            "Ship Debug Info\nX: {:.2}\nY: {:.2}\nZ: {:.2}\nRotation: {:.1}°\nSpeed: {:.1}\nVel X: {:.1}\nVel Z: {:.1}",
+            position.x,
+            position.y,
+            position.z,
+            rotation_degrees,
+            speed,
+            vel.x,
+            vel.z
+        );
     }
 }
 

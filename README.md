@@ -1,6 +1,6 @@
-# Fyrox Arena Survivor
+# Void Survivor
 
-A 3D top-down arena survival shooter built with the Fyrox game engine.
+A 3D top-down arena survival shooter built with the bevy game engine.
 
 ## Project Structure
 

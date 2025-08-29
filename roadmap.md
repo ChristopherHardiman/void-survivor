@@ -1,7 +1,7 @@
-# Bevy Arena Survivor - Development Roadmap
+# Void Survivor - Development Roadmap
 
 ## Project Overview
-Bevy Arena Survivor is a 3D top-down arena survival shooter built with the Bevy game engine. This roadmap outlines the development phases, milestones, and tasks needed to complete the project.
+Void Survivor is a 3D top-down arena survival shooter built with the Bevy game engine. This roadmap outlines the development phases, milestones, and tasks needed to complete the project.
 
 ## Engine Migration Status ✅
 - [x] **Fyrox to Bevy Migration**: Successfully migrated from Fyrox 0.36.2 to Bevy 0.12
