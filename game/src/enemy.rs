@@ -145,24 +145,18 @@ pub fn spawn_enemy(
     position: Vec3,
 ) {
     let enemy = Enemy::new(enemy_type.clone());
-    let texture_path = match enemy_type {
-        EnemyType::Chaser => "sprites/enemy_chaser.png",
-        EnemyType::Shooter => "sprites/enemy_shooter.png",
-        EnemyType::Tank => "sprites/enemy_tank.png",
-        EnemyType::Swarm => "sprites/enemy_swarm.png",
-        EnemyType::Elite => "sprites/enemy_elite.png",
-        EnemyType::Boss => "sprites/enemy_boss.png",
-    };
-    
-    let scale = match enemy_type {
-        EnemyType::Swarm => 0.3,
-        EnemyType::Boss => 1.5,
-        _ => 0.5,
+    let (model_path, scale) = match enemy_type {
+        EnemyType::Chaser => ("models/orb.obj", 0.4),
+        EnemyType::Swarm => ("models/orb.obj", 0.3),
+        EnemyType::Shooter => ("models/orb.obj", 0.45),
+        EnemyType::Tank => ("models/orb_shield.obj", 0.6),
+        EnemyType::Elite => ("models/orb_shield.obj", 0.8),
+        EnemyType::Boss => ("models/orb_shield.obj", 1.2),
     };
     
     commands.spawn((
-        SpriteBundle {
-            texture: asset_server.load(texture_path),
+        SceneBundle {
+            scene: asset_server.load(model_path),
             transform: Transform::from_translation(position)
                 .with_scale(Vec3::splat(scale)),
             ..default()

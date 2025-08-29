@@ -1,4 +1,10 @@
 //! UI system - handles HUD, menus, and user interface
+//! 
+//! Font Attribution:
+//! Using Woodwarrior typeface by Anton Bohlin
+//! Licensed under Creative Commons Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0)
+//! http://antonbohlin.com/projects/woodwarrior
+//! http://creativecommons.org/licenses/by-sa/3.0/
 use bevy::prelude::*;
 use crate::{GameState};
 use crate::player::Player;
@@ -83,7 +89,7 @@ fn setup_game_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextBundle::from_section(
                             "Wave: 1",
                             TextStyle {
-                                font: asset_server.load("fonts/game_font.ttf"),
+                                font: asset_server.load("ui/Woodwarrior-Regular.otf"),
                                 font_size: 24.0,
                                 color: Color::WHITE,
                             },
@@ -96,7 +102,7 @@ fn setup_game_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextBundle::from_section(
                             "Level: 1",
                             TextStyle {
-                                font: asset_server.load("fonts/game_font.ttf"),
+                                font: asset_server.load("ui/Woodwarrior-Regular.otf"),
                                 font_size: 24.0,
                                 color: Color::YELLOW,
                             },
@@ -231,9 +237,9 @@ fn setup_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|parent| {
             // Title
             parent.spawn(TextBundle::from_section(
-                "Bevy Arena Survivor",
+                "Void Survivor",
                 TextStyle {
-                    font: asset_server.load("fonts/game_font.ttf"),
+                    font: asset_server.load("ui/Woodwarrior-Bold.otf"),
                     font_size: 48.0,
                     color: Color::WHITE,
                 },
@@ -263,7 +269,7 @@ fn setup_main_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn(TextBundle::from_section(
                         "Play",
                         TextStyle {
-                            font: asset_server.load("fonts/game_font.ttf"),
+                            font: asset_server.load("ui/Woodwarrior-Regular.otf"),
                             font_size: 24.0,
                             color: Color::WHITE,
                         },
@@ -393,7 +399,7 @@ pub fn setup_death_screen(mut commands: Commands, asset_server: Res<AssetServer>
             parent.spawn(TextBundle::from_section(
                 "GAME OVER",
                 TextStyle {
-                    font: asset_server.load("fonts/game_font.ttf"),
+                    font: asset_server.load("ui/Woodwarrior-Bold.otf"),
                     font_size: 48.0,
                     color: Color::WHITE,
                 },

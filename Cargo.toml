@@ -13,6 +13,8 @@ bevy = { version = "0.12", default-features = false, features = [
     "bevy_scene",
     "bevy_text",
     "bevy_ui",
+    "bevy_pbr",
+    "bevy_gltf",
     "x11",
     "png",
     "vorbis",

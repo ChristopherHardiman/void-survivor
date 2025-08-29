@@ -1,5 +1,6 @@
-//! Player system - handles movement, weapons, and stats
+//! Player system - handles player movement, shooting, and health
 use bevy::prelude::*;
+use bevy::render::mesh::shape;
 use crate::{GameState, GameEntity};
 
 pub struct PlayerPlugin;
@@ -141,17 +142,23 @@ pub struct Projectile {
 }
 
 // Systems
-fn spawn_player(mut commands: Commands) {
+fn spawn_player(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
     info!("Spawning player");
     
     commands.spawn((
-        SpriteBundle {
-            sprite: Sprite {
-                color: Color::BLUE,
-                custom_size: Some(Vec2::new(30.0, 40.0)),
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Capsule {
+                radius: 0.3,
+                depth: 1.0,
                 ..default()
-            },
-            transform: Transform::from_xyz(0.0, 0.0, 1.0),
+            })),
+            material: materials.add(StandardMaterial {
+                base_color: Color::BLUE,
+                metallic: 0.1,
+                perceptual_roughness: 0.8,
+                ..default()
+            }),
+            transform: Transform::from_xyz(0.0, 0.5, 0.0), // Lift off ground
             ..default()
         },
         Player::new(),
@@ -214,6 +221,8 @@ fn player_movement_system(
 
 fn player_shooting_system(
     mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     mouse_input: Res<Input<MouseButton>>,
     keyboard_input: Res<Input<KeyCode>>,
     time: Res<Time>,
@@ -257,6 +266,8 @@ fn player_shooting_system(
                         // Spawn projectile
                         spawn_projectile(
                             &mut commands,
+                            &mut meshes,
+                            &mut materials,
                             player_transform.translation,
                             direction,
                             &weapon.weapon_type,
@@ -295,26 +306,45 @@ fn player_stats_system(
 
 fn spawn_projectile(
     commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
     position: Vec3,
     direction: Vec3,
     weapon_type: &WeaponType,
     damage: f32,
 ) {
-    let (speed, lifetime, color) = match weapon_type {
-        WeaponType::Blaster => (800.0, 2.0, Color::YELLOW),
-        WeaponType::Laser => (1200.0, 1.5, Color::RED),
-        WeaponType::Rocket => (600.0, 3.0, Color::ORANGE),
-        WeaponType::AoePulse => (400.0, 1.0, Color::PURPLE),
+    let (speed, lifetime, scale, color) = match weapon_type {
+        WeaponType::Blaster => (800.0, 2.0, 0.3, Color::YELLOW),
+        WeaponType::Laser => (1200.0, 1.5, 0.25, Color::RED),
+        WeaponType::Rocket => (600.0, 3.0, 0.4, Color::ORANGE),
+        WeaponType::AoePulse => (400.0, 1.0, 0.35, Color::PURPLE),
+    };
+    
+    // Calculate rotation to face the direction of travel
+    let rotation = if direction.length() > 0.0 {
+        Quat::from_rotation_z(direction.y.atan2(direction.x) - std::f32::consts::FRAC_PI_2)
+    } else {
+        Quat::IDENTITY
     };
     
     commands.spawn((
-        SpriteBundle {
-            sprite: Sprite {
-                color,
-                custom_size: Some(Vec2::new(8.0, 16.0)),
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cylinder {
+                radius: 0.08,
+                height: 0.3,
+                resolution: 8,
+                segments: 1,
+            })),
+            material: materials.add(StandardMaterial {
+                base_color: color,
+                emissive: color * 0.3, // Make projectiles glow
+                metallic: 0.2,
+                perceptual_roughness: 0.7,
                 ..default()
-            },
-            transform: Transform::from_translation(position),
+            }),
+            transform: Transform::from_translation(position)
+                .with_rotation(rotation)
+                .with_scale(Vec3::splat(scale)),
             ..default()
         },
         Projectile {

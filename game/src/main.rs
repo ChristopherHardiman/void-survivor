@@ -91,20 +91,39 @@ fn main() {
 }
 
 fn setup_game(mut commands: Commands) {
-    // Setup camera for top-down view
+    // Setup 3D camera for isometric/top-down view
     commands.spawn((
-        Camera2dBundle {
+        Camera3dBundle {
+            transform: Transform::from_xyz(0.0, 15.0, 10.0)
+                .looking_at(Vec3::ZERO, Vec3::Y),
             camera: Camera {
                 order: 0,
                 ..default()
             },
-            transform: Transform::from_xyz(0.0, 0.0, 100.0),
             ..default()
         },
         MainCamera,
     ));
     
-    info!("Game setup complete - Void Survivor initialized");
+    // Add basic lighting for 3D models
+    commands.spawn(DirectionalLightBundle {
+        directional_light: DirectionalLight {
+            color: Color::WHITE,
+            illuminance: 10000.0,
+            shadows_enabled: true,
+            ..default()
+        },
+        transform: Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -0.5, -0.5, 0.0)),
+        ..default()
+    });
+    
+    // Add ambient lighting
+    commands.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 0.3,
+    });
+    
+    info!("Game setup complete - Void Survivor initialized with 3D rendering");
 }
 
 fn handle_game_state_transitions(
@@ -146,9 +165,21 @@ fn update_camera_system(
 ) {
     if let Ok(mut camera_transform) = camera_query.get_single_mut() {
         if let Ok(player_transform) = player_query.get_single() {
-            // Smoothly follow player
-            let target = player_transform.translation;
+            // Smoothly follow player while maintaining 3D perspective
+            let target = Vec3::new(
+                player_transform.translation.x,
+                15.0, // Keep camera height
+                player_transform.translation.z + 10.0, // Keep camera behind player
+            );
             camera_transform.translation = camera_transform.translation.lerp(target, 0.05);
+            
+            // Always look at the player
+            let look_target = Vec3::new(
+                player_transform.translation.x,
+                player_transform.translation.y,
+                player_transform.translation.z,
+            );
+            camera_transform.look_at(look_target, Vec3::Y);
         }
     }
 }
